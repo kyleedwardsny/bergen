@@ -1,5 +1,5 @@
 /*
- * include/bergen/libc.h
+ * include/bergen/label.h
  * Copyright (C) 2015 Kyle Edwards <kyleedwardsny@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,34 +21,34 @@
  * THE SOFTWARE.
  */
 
-#ifndef BERGEN_LIBC_H
-#define BERGEN_LIBC_H
+#ifndef BERGEN_LABEL_H
+#define BERGEN_LABEL_H
 
-#include <ctype.h>
-#include <stdarg.h>
-#include <stdio.h>
+#include <bergen/types.h>
+
 #include <stdlib.h>
-#include <string.h>
 
-/* ctype.h */
-#define bergen_isspace		isspace
+struct label {
+	char *name;
+	expr_value value;
+};
 
-/* stdio.h */
-#define bergen_vsnprintf	vsnprintf
+struct label_list {
+	struct label *labels;
+	size_t buffer_size; /* Number of labels in buffer */
+	size_t num_labels;
+};
 
-/* stdlib.h */
-#define bergen_malloc		malloc
-#define bergen_realloc		realloc
-#define bergen_free		free
+void label_init(struct label *label, const char *name, size_t length, expr_value value);
 
-/* string.h */
-#define bergen_memcpy		memcpy
-#define bergen_strchr		strchr
-#define bergen_strcpy		strcpy
-#define bergen_strlen		strlen
-#define bergen_strncpy		strncpy
-char *bergen_strdup(const char *s);
-char *bergen_strndup(const char *s, size_t n);
-char *bergen_strndup_null(const char *s, size_t n); /* Puts null terminator at the end */
+void label_destroy(struct label *label);
 
-#endif /* BERGEN_LIBC_H */
+void label_list_init(struct label_list *list);
+
+void label_list_destroy(struct label_list *list);
+
+void label_list_append_copy(struct label_list *list, const struct label *label);
+
+void label_list_append(struct label_list *list, const char *name, size_t length, expr_value value);
+
+#endif /* BERGEN_LABEL_H */

@@ -25,13 +25,6 @@
 
 #include <bergen/libc.h>
 
-struct expr_token_list *expr_token_list_create(void)
-{
-	struct expr_token_list *list = bergen_malloc(sizeof(*list));
-	expr_token_list_init(list);
-	return list;
-}
-
 void expr_token_list_init(struct expr_token_list *list)
 {
 	list->tokens = bergen_malloc(sizeof(*list->tokens) * 32);
@@ -42,12 +35,6 @@ void expr_token_list_init(struct expr_token_list *list)
 void expr_token_list_destroy(struct expr_token_list *list)
 {
 	bergen_free(list->tokens);
-}
-
-void expr_token_list_free(struct expr_token_list *list)
-{
-	expr_token_list_destroy(list);
-	bergen_free(list);
 }
 
 void expr_token_list_append(struct expr_token_list *list, const struct expr_token *token)

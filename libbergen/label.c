@@ -1,5 +1,5 @@
 /*
- * include/bergen/libc.h
+ * libbergen/label.c
  * Copyright (C) 2015 Kyle Edwards <kyleedwardsny@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,34 +21,49 @@
  * THE SOFTWARE.
  */
 
-#ifndef BERGEN_LIBC_H
-#define BERGEN_LIBC_H
+#include <bergen/label.h>
 
-#include <ctype.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <bergen/libc.h>
 
-/* ctype.h */
-#define bergen_isspace		isspace
+void label_init(struct label *label, const char *name, size_t length, expr_value value)
+{
+	label->name = bergen_strndup_null(name, length);
+	label->value = value;
+}
 
-/* stdio.h */
-#define bergen_vsnprintf	vsnprintf
+void label_destroy(struct label *label)
+{
+	bergen_free(label->name);
+}
 
-/* stdlib.h */
-#define bergen_malloc		malloc
-#define bergen_realloc		realloc
-#define bergen_free		free
+void label_list_init(struct label_list *list)
+{
+	list->labels = bergen_malloc(sizeof(*list->labels) * 32);
+	list->buffer_size = 32;
+	list->num_labels = 0;
+}
 
-/* string.h */
-#define bergen_memcpy		memcpy
-#define bergen_strchr		strchr
-#define bergen_strcpy		strcpy
-#define bergen_strlen		strlen
-#define bergen_strncpy		strncpy
-char *bergen_strdup(const char *s);
-char *bergen_strndup(const char *s, size_t n);
-char *bergen_strndup_null(const char *s, size_t n); /* Puts null terminator at the end */
+void label_list_destroy(struct label_list *list)
+{
+	bergen_free(list->labels);
+}
 
-#endif /* BERGEN_LIBC_H */
+void label_list_append_copy(struct label_list *list, const struct label *label)
+{
+	size_t length = bergen_strlen(label->name);
+	label_list_append(list, label->name, length, label->value);
+}
+
+void label_list_append(struct label_list *list, const char *name, size_t length, expr_value value)
+{
+	struct label *ptr;
+
+	if (list->num_labels >= list->buffer_size) {
+		list->buffer_size *= 2;
+		list->labels = bergen_realloc(list->labels, sizeof(*list->labels) * list->buffer_size);
+	}
+
+	ptr = &list->labels[list->num_labels++];
+	ptr->name = bergen_strndup_null(name, length);
+	ptr->value = value;
+}

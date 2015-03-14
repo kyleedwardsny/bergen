@@ -1,5 +1,5 @@
 /*
- * include/bergen/libc.h
+ * libbergen/expr_data.c
  * Copyright (C) 2015 Kyle Edwards <kyleedwardsny@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,34 +21,17 @@
  * THE SOFTWARE.
  */
 
-#ifndef BERGEN_LIBC_H
-#define BERGEN_LIBC_H
+#include <bergen/expression.h>
 
-#include <ctype.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+void expr_data_init(struct expr_data *data, const char *str, size_t length, char local_label_char)
+{
+	expr_token_list_init(&data->tokens);
+	data->str = str;
+	data->length = length;
+	data->local_label_char = local_label_char;
+}
 
-/* ctype.h */
-#define bergen_isspace		isspace
-
-/* stdio.h */
-#define bergen_vsnprintf	vsnprintf
-
-/* stdlib.h */
-#define bergen_malloc		malloc
-#define bergen_realloc		realloc
-#define bergen_free		free
-
-/* string.h */
-#define bergen_memcpy		memcpy
-#define bergen_strchr		strchr
-#define bergen_strcpy		strcpy
-#define bergen_strlen		strlen
-#define bergen_strncpy		strncpy
-char *bergen_strdup(const char *s);
-char *bergen_strndup(const char *s, size_t n);
-char *bergen_strndup_null(const char *s, size_t n); /* Puts null terminator at the end */
-
-#endif /* BERGEN_LIBC_H */
+void expr_data_destroy(struct expr_data *data)
+{
+	expr_token_list_destroy(&data->tokens);
+}

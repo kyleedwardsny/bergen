@@ -25,6 +25,8 @@
 #define BERGEN_EXPRESSION_H
 
 #include <bergen/error.h>
+#include <bergen/label.h>
+#include <bergen/types.h>
 
 #include <stdlib.h>
 
@@ -51,16 +53,28 @@ struct expr_token_list {
 	size_t num_tokens;
 };
 
-struct expr_token_list *expr_token_list_create(void);
+struct expr_data {
+	const char *str;
+	size_t length;
+	struct expr_token_list tokens;
+	char local_label_char;
+
+	struct label_list labels;
+	struct label_list local_labels;
+};
 
 void expr_token_list_init(struct expr_token_list *list);
 
 void expr_token_list_destroy(struct expr_token_list *list);
 
-void expr_token_list_free(struct expr_token_list *list);
-
 void expr_token_list_append(struct expr_token_list *list, const struct expr_token *token);
 
-struct error *expr_tokenize(const char *str, size_t length, struct expr_token_list *tokens, char local_label_char);
+void expr_data_init(struct expr_data *data, const char *str, size_t length, char local_label_char);
+
+void expr_data_destroy(struct expr_data *data);
+
+struct error *expr_tokenize(struct expr_data *data);
+
+struct error *expr_evaluate(struct expr_data *data, expr_value *result);
 
 #endif /* BERGEN_EXPRESSION_H */

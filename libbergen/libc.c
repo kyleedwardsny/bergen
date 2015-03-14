@@ -1,5 +1,5 @@
 /*
- * include/bergen/libc.h
+ * libbergen/libc.c
  * Copyright (C) 2015 Kyle Edwards <kyleedwardsny@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,34 +21,26 @@
  * THE SOFTWARE.
  */
 
-#ifndef BERGEN_LIBC_H
-#define BERGEN_LIBC_H
+#include <bergen/libc.h>
 
-#include <ctype.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+char *bergen_strdup(const char *s)
+{
+	char *buf = bergen_malloc(bergen_strlen(s) + 1);
+	bergen_strcpy(buf, s);
+	return buf;
+}
 
-/* ctype.h */
-#define bergen_isspace		isspace
+char *bergen_strndup(const char *s, size_t n)
+{
+	char *buf = bergen_malloc(n);
+	bergen_strncpy(buf, s, n);
+	return buf;
+}
 
-/* stdio.h */
-#define bergen_vsnprintf	vsnprintf
-
-/* stdlib.h */
-#define bergen_malloc		malloc
-#define bergen_realloc		realloc
-#define bergen_free		free
-
-/* string.h */
-#define bergen_memcpy		memcpy
-#define bergen_strchr		strchr
-#define bergen_strcpy		strcpy
-#define bergen_strlen		strlen
-#define bergen_strncpy		strncpy
-char *bergen_strdup(const char *s);
-char *bergen_strndup(const char *s, size_t n);
-char *bergen_strndup_null(const char *s, size_t n); /* Puts null terminator at the end */
-
-#endif /* BERGEN_LIBC_H */
+char *bergen_strndup_null(const char *s, size_t n)
+{
+	char *buf = bergen_malloc(n + 1);
+	bergen_strncpy(buf, s, n);
+	buf[n] = '\0';
+	return buf;
+}
