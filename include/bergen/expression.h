@@ -61,6 +61,6 @@ void expr_token_list_free(struct expr_token_list *list);
 
 void expr_token_list_append(struct expr_token_list *list, const struct expr_token *token);
 
-struct error *expr_tokenize(const char *str, struct expr_token_list *tokens, char local_label_char);
+struct error *expr_tokenize(const char *str, size_t length, struct expr_token_list *tokens, char local_label_char);
 
 #endif /* BERGEN_EXPRESSION_H */
