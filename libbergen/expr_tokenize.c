@@ -361,6 +361,7 @@ static struct error *tokenize_state_binary_operator_end(struct tokenize_data *da
 {
 	token_finish(data, 0);
 	data->consumed_char = 0;
+	data->state = &TOKENIZE_STATE_EXPR_BEGIN;
 	return NULL;
 }
 
