@@ -21,9 +21,7 @@
 
 src = [				\
 	"error.c",		\
-	"expr_data.c",		\
-	"expr_tokenize.c",	\
-	"expr_token_list.c",	\
+	"expression.c",		\
 	"label.c",		\
 	"libc.c",		\
 ]

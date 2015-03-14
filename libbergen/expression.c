@@ -1,5 +1,5 @@
 /*
- * libbergen/expr_tokenize.c
+ * libbergen/expression.c
  * Copyright (C) 2015 Kyle Edwards <kyleedwardsny@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,6 +24,46 @@
 #include <bergen/expression.h>
 
 #include <bergen/libc.h>
+
+void expr_token_list_init(struct expr_token_list *list)
+{
+	list->tokens = bergen_malloc(sizeof(*list->tokens) * 32);
+	list->buffer_size = 32;
+	list->num_tokens = 0;
+}
+
+void expr_token_list_destroy(struct expr_token_list *list)
+{
+	bergen_free(list->tokens);
+}
+
+void expr_token_list_append(struct expr_token_list *list, const struct expr_token *token)
+{
+	struct expr_token *ptr;
+
+	if (list->num_tokens >= list->buffer_size) {
+		list->buffer_size *= 2;
+		list->tokens = bergen_realloc(list->tokens, sizeof(*list->tokens) * list->buffer_size);
+	}
+
+	ptr = &list->tokens[list->num_tokens++];
+	ptr->index = token->index;
+	ptr->length = token->length;
+	ptr->type = token->type;
+}
+
+void expr_data_init(struct expr_data *data, const char *str, size_t length, char local_label_char)
+{
+	expr_token_list_init(&data->tokens);
+	data->str = str;
+	data->length = length;
+	data->local_label_char = local_label_char;
+}
+
+void expr_data_destroy(struct expr_data *data)
+{
+	expr_token_list_destroy(&data->tokens);
+}
 
 struct tokenize_data {
 	/* Constants */
