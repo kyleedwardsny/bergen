@@ -1,0 +1,23 @@
+*******************
+* What is bergen? *
+*******************
+
+bergen (with lowercase 'b') is a free and open-source drop-in replacement for
+the Telemark Assembler (http://home.comcast.net/~tasm). The goal of bergen is
+to be able to assemble all Z80 assembly language programs written for the
+Telemark Assembler without any modifications. It is intended to be used on all
+platforms by people developing assembly language programs for the TI-83 Plus
+series of graphing calculators. As such, it may not have all features of the
+Telemark Assembler, but it will have enough to write Z80 assembly language
+programs.
+
+*************
+* Licensing *
+*************
+
+Since bergen is licensed under the MIT license, you are free to modify and
+redistribute it in any way you wish, so long as you give the author credit.
+However, if you wish to have your changes integrated into the mainline bergen
+project, you MUST license them under the MIT/X11 license. Because of some
+confusion surrounding the various types of BSD licenses (2-clause, 3-clause,
+4-clause), BSD-licensed code will not be accepted into the project.
