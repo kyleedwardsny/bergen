@@ -67,3 +67,17 @@ void label_list_append(struct label_list *list, const char *name, size_t length,
 	ptr->name = bergen_strndup_null(name, length);
 	ptr->value = value;
 }
+
+struct label *label_list_find_label(const struct label_list *list, const char *name, size_t length)
+{
+	size_t i;
+	struct label *ptr;
+
+	for (i = 0; i < list->num_labels; i++) {
+		ptr = &list->labels[i];
+		if (length == bergen_strlen(ptr->name) && !bergen_strncmp(name, ptr->name, length))
+			return ptr;
+	}
+
+	return NULL;
+}

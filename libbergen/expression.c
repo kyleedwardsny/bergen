@@ -55,6 +55,8 @@ void expr_token_list_append(struct expr_token_list *list, const struct expr_toke
 void expr_data_init(struct expr_data *data, const char *str, size_t length, char local_label_char)
 {
 	expr_token_list_init(&data->tokens);
+	label_list_init(&data->labels);
+	label_list_init(&data->local_labels);
 	data->str = str;
 	data->length = length;
 	data->local_label_char = local_label_char;
@@ -62,6 +64,8 @@ void expr_data_init(struct expr_data *data, const char *str, size_t length, char
 
 void expr_data_destroy(struct expr_data *data)
 {
+	label_list_destroy(&data->local_labels);
+	label_list_destroy(&data->labels);
 	expr_token_list_destroy(&data->tokens);
 }
 

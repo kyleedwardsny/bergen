@@ -46,6 +46,7 @@
 #define bergen_strchr		strchr
 #define bergen_strcpy		strcpy
 #define bergen_strlen		strlen
+#define bergen_strncmp		strncmp
 #define bergen_strncpy		strncpy
 char *bergen_strdup(const char *s);
 char *bergen_strndup(const char *s, size_t n);

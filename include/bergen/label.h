@@ -51,4 +51,6 @@ void label_list_append_copy(struct label_list *list, const struct label *label);
 
 void label_list_append(struct label_list *list, const char *name, size_t length, expr_value value);
 
+struct label *label_list_find_label(const struct label_list *list, const char *name, size_t length);
+
 #endif /* BERGEN_LABEL_H */
