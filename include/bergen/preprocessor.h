@@ -1,5 +1,5 @@
 /*
- * test/main.c
+ * include/bergen/preprocessor.h
  * Copyright (C) 2015 Kyle Edwards <kyleedwardsny@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,18 +21,33 @@
  * THE SOFTWARE.
  */
 
-#include "tests.h"
+#ifndef BERGEN_PREPROCESSOR_H
+#define BERGEN_PREPROCESSOR_H
 
-int main(int argc, char **argv)
+#include <bergen/error.h>
+#include <bergen/libc.h>
+
+struct pp_macro_definition {
+	char *name;
+	char **args;
+	size_t args_buffer_size; /* Number of arguments in buffer */
+	size_t num_args;
+};
+
+void pp_macro_definition_init(struct pp_macro_definition *macro, const char *name, size_t length, int have_args);
+
+static inline void pp_macro_definition_init_easy(struct pp_macro_definition *macro, const char *name, int have_args)
 {
-	Suite *suite = suite_create("Unit Tests");
-	SRunner *runner;
-
-	suite_add_tcase(suite, tcase_expr_evaluate());
-	suite_add_tcase(suite, tcase_preprocessor());
-
-	runner = srunner_create(suite);
-	srunner_run_all(runner, CK_NORMAL);
-
-	return srunner_ntests_failed(runner) == 0 ? 0 : 1;
+	pp_macro_definition_init(macro, name, bergen_strlen(name), have_args);
 }
+
+void pp_macro_definition_destroy(struct pp_macro_definition *macro);
+
+struct error *pp_macro_definition_add_arg(struct pp_macro_definition *macro, const char *name, size_t length);
+
+static inline struct error *pp_macro_definition_add_arg_easy(struct pp_macro_definition *macro, const char *name)
+{
+	return pp_macro_definition_add_arg(macro, name, bergen_strlen(name));
+}
+
+#endif /* BERGEN_PREPROCESSOR_H */

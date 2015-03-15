@@ -22,6 +22,7 @@
 src = [				\
 	"expr_evaluate.c",	\
 	"main.c",		\
+	"preprocessor.c",	\
 ]
 
 build = [File(x) for x in src]

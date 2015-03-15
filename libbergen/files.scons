@@ -24,6 +24,7 @@ src = [				\
 	"expression.c",		\
 	"label.c",		\
 	"libc.c",		\
+	"preprocessor.c",	\
 ]
 
 build = [File(x) for x in src]
