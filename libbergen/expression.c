@@ -959,7 +959,7 @@ static size_t expr_evaluate_r(struct expr_data *data, struct token_list *tokens,
 			index++;
 			op_type = token->extra.binary_operator_type;
 		} else if (token->type == TOKEN_TYPE_RPAREN) {
-			return index;
+			return index + 1;
 		}
 	}
 
