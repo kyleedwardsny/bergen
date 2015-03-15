@@ -155,12 +155,6 @@ static void token_append(struct tokenize_data *data)
 	expr_token_list_append(data->tokens, &data->token);
 }
 
-static void token_finish(struct tokenize_data *data, size_t additional_chars)
-{
-	token_calc_length(data, additional_chars);
-	token_append(data);
-}
-
 static inline int is_constant_begin(char c)
 {
 	return !!bergen_strchr("0123456789", c);
@@ -238,6 +232,15 @@ static struct error *do_unary_operator(struct tokenize_data *data)
 	data->token.index = data->index;
 	data->token.length = 1;
 	data->token.type = EXPR_TOKEN_TYPE_UNARY_OPERATOR;
+	switch (data->current_char) {
+	case '~':
+		data->token.extra.unary_operator_type = EXPR_UNARY_OPERATOR_TYPE_INVERT;
+		break;
+
+	case '-':
+		data->token.extra.unary_operator_type = EXPR_UNARY_OPERATOR_TYPE_NEGATE;
+		break;
+	}
 	token_append(data);
 
 	data->state = &TOKENIZE_STATE_EXPR_BEGIN;
@@ -449,6 +452,95 @@ static struct error *evaluate_label(struct tokenize_data *data)
 		return evaluate_label_type_known(&data->data->labels, str, data->token.length, &data->token.extra.value);
 }
 
+static struct error *evaluate_binary_operator_1(struct tokenize_data *data)
+{
+	char c = data->data->str[data->token.index];
+
+	switch (c) {
+	case '+':
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_PLUS;
+		break;
+
+	case '-':
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_MINUS;
+		break;
+
+	case '*':
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_TIMES;
+		break;
+
+	case '/':
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_DIV;
+		break;
+
+	case '%':
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_MODULO;
+		break;
+
+	case '=':
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_EQ;
+		break;
+
+	case '<':
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_LT;
+		break;
+
+	case '>':
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_GT;
+		break;
+
+	case '&':
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_AND;
+		break;
+
+	case '|':
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_OR;
+		break;
+
+	case '^':
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_XOR;
+		break;
+	}
+
+	return NULL;
+}
+
+static struct error *evaluate_binary_operator_2(struct tokenize_data *data)
+{
+	const char *str = data->data->str + data->token.index;
+	char *buf;
+	struct error *err;
+
+	if (!bergen_strncmp(str, "<<", 2))
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_LSL;
+	else if (!bergen_strncmp(str, ">>", 2))
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_LSR;
+	else if (!bergen_strncmp(str, "==", 2))
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_EQ;
+	else if (!bergen_strncmp(str, "!=", 2))
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_NE;
+	else if (!bergen_strncmp(str, "<=", 2))
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_LE;
+	else if (!bergen_strncmp(str, ">=", 2))
+		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_GE;
+	else {
+		buf = bergen_strndup_null(str, 2);
+		err = error_create("Invalid binary operator: \"%s\"", buf);
+		bergen_free(buf);
+		return err;
+	}
+
+	return NULL;
+}
+
+static struct error *evaluate_binary_operator(struct tokenize_data *data)
+{
+	if (data->token.length == 1)
+		return evaluate_binary_operator_1(data);
+	else
+		return evaluate_binary_operator_2(data);
+}
+
 static struct error *tokenize_state_expr_begin_consume(struct tokenize_data *data, char c)
 {
 	if (bergen_isspace(c)) {
@@ -594,12 +686,22 @@ static struct error *tokenize_state_char_constant_end(struct tokenize_data *data
 
 static struct error *tokenize_state_binary_operator_consume(struct tokenize_data *data, char c)
 {
+	struct error *err;
+
 	if (is_binary_operator_second(c)) {
-		token_finish(data, 1);
+		token_calc_length(data, 1);
+		if ((err = evaluate_binary_operator(data)))
+			return err;
+		token_append(data);
+
 		data->state = &TOKENIZE_STATE_EXPR_BEGIN;
 		return NULL;
 	} else {
-		token_finish(data, 0);
+		token_calc_length(data, 0);
+		if ((err = evaluate_binary_operator(data)))
+			return err;
+		token_append(data);
+
 		data->consumed_char = 0;
 		data->state = &TOKENIZE_STATE_EXPR_BEGIN;
 		return NULL;
@@ -608,7 +710,6 @@ static struct error *tokenize_state_binary_operator_consume(struct tokenize_data
 
 static struct error *tokenize_state_binary_operator_end(struct tokenize_data *data)
 {
-	token_finish(data, 0);
 	data->consumed_char = 0;
 	data->state = &TOKENIZE_STATE_EXPR_BEGIN;
 	return NULL;
