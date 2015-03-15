@@ -44,6 +44,7 @@ enum expr_unary_operator_type {
 };
 
 enum expr_binary_operator_type {
+	EXPR_BINARY_OPERATOR_TYPE_ASSIGN,
 	EXPR_BINARY_OPERATOR_TYPE_PLUS,
 	EXPR_BINARY_OPERATOR_TYPE_MINUS,
 	EXPR_BINARY_OPERATOR_TYPE_TIMES,

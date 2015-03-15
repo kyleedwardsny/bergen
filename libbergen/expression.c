@@ -775,3 +775,159 @@ struct error *expr_tokenize(struct expr_data *data, struct expr_token_list *toke
 
 	return NULL;
 }
+
+static void apply_binary_operator(enum expr_binary_operator_type op_type, expr_value *result, expr_value rvalue)
+{
+	switch (op_type) {
+	case EXPR_BINARY_OPERATOR_TYPE_ASSIGN:
+		*result = rvalue;
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_PLUS:
+		*result += rvalue;
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_MINUS:
+		*result -= rvalue;
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_TIMES:
+		*result *= rvalue;
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_DIV:
+		*result /= rvalue;
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_MODULO:
+		*result %= rvalue;
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_LSL:
+		*result <<= rvalue;
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_LSR:
+		*result >>= rvalue;
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_EQ:
+		*result = (*result == rvalue);
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_NE:
+		*result = (*result != rvalue);
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_LT:
+		*result = (*result < rvalue);
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_GT:
+		*result = (*result > rvalue);
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_LE:
+		*result = (*result <= rvalue);
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_GE:
+		*result = (*result >= rvalue);
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_AND:
+		*result &= rvalue;
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_OR:
+		*result |= rvalue;
+		break;
+
+	case EXPR_BINARY_OPERATOR_TYPE_XOR:
+		*result ^= rvalue;
+		break;
+	}
+}
+
+static size_t expr_evaluate_r(struct expr_data *data, struct expr_token_list *tokens, size_t start_index, expr_value *result);
+
+static size_t apply_unary_operator(struct expr_data *data, struct expr_token_list *tokens, size_t start_index, expr_value *result)
+{
+	size_t index = start_index;
+	expr_value value;
+	struct expr_token *token1 = &tokens->tokens[index];
+	struct expr_token *token2 = &tokens->tokens[index + 1];
+
+	if (token2->type == EXPR_TOKEN_TYPE_CONSTANT) {
+		index += 2;
+		value = token2->extra.value;
+	} else if (token2->type == EXPR_TOKEN_TYPE_LPAREN) {
+		index = expr_evaluate_r(data, tokens, index + 1, &value);
+	}
+
+	switch (token1->extra.unary_operator_type) {
+	case EXPR_UNARY_OPERATOR_TYPE_INVERT:
+		*result = ~value;
+		break;
+
+	case EXPR_UNARY_OPERATOR_TYPE_NEGATE:
+		*result = -value;
+		break;
+	}
+
+	return index;
+}
+
+static size_t expr_evaluate_r(struct expr_data *data, struct expr_token_list *tokens, size_t start_index, expr_value *result)
+{
+	size_t index = start_index;
+	expr_value value;
+	struct expr_token *token;
+	enum expr_binary_operator_type op_type = EXPR_BINARY_OPERATOR_TYPE_ASSIGN;
+
+	for (;;) {
+		/* First step */
+		token = &tokens->tokens[index];
+		if (token->type == EXPR_TOKEN_TYPE_CONSTANT) {
+			index++;
+			apply_binary_operator(op_type, result, token->extra.value);
+		} else if (token->type == EXPR_TOKEN_TYPE_LPAREN) {
+			index = expr_evaluate_r(data, tokens, index + 1, &value);
+			apply_binary_operator(op_type, result, value);
+		} else if (token->type == EXPR_TOKEN_TYPE_UNARY_OPERATOR) {
+			index = apply_unary_operator(data, tokens, index, &value);
+			apply_binary_operator(op_type, result, value);
+		}
+
+		/* Second step */
+		if (index >= tokens->num_tokens)
+			return index;
+		token = &tokens->tokens[index];
+		if (token->type == EXPR_TOKEN_TYPE_BINARY_OPERATOR) {
+			index++;
+			op_type = token->extra.binary_operator_type;
+		} else if (token->type == EXPR_TOKEN_TYPE_RPAREN) {
+			return index;
+		}
+	}
+
+	return 0;
+}
+
+struct error *expr_evaluate(struct expr_data *data, expr_value *result)
+{
+	struct error *err;
+	struct expr_token_list tokens;
+
+	expr_token_list_init(&tokens);
+	if ((err = expr_tokenize(data, &tokens))) {
+		expr_token_list_destroy(&tokens);
+		return err;
+	}
+
+	/* Expression is guaranteed to be valid, now evaluate it */
+	expr_evaluate_r(data, &tokens, 0, result);
+
+	expr_token_list_destroy(&tokens);
+	return NULL;
+}
