@@ -25,21 +25,71 @@
 
 #include <bergen/libc.h>
 
-void expr_token_list_init(struct expr_token_list *list)
+enum token_type {
+	TOKEN_TYPE_CONSTANT,
+	TOKEN_TYPE_UNARY_OPERATOR,
+	TOKEN_TYPE_BINARY_OPERATOR,
+	TOKEN_TYPE_LPAREN,
+	TOKEN_TYPE_RPAREN,
+};
+
+enum unary_operator_type {
+	UNARY_OPERATOR_TYPE_INVERT,
+	UNARY_OPERATOR_TYPE_NEGATE,
+};
+
+enum binary_operator_type {
+	BINARY_OPERATOR_TYPE_ASSIGN,
+	BINARY_OPERATOR_TYPE_PLUS,
+	BINARY_OPERATOR_TYPE_MINUS,
+	BINARY_OPERATOR_TYPE_TIMES,
+	BINARY_OPERATOR_TYPE_DIV,
+	BINARY_OPERATOR_TYPE_MODULO,
+	BINARY_OPERATOR_TYPE_LSL,
+	BINARY_OPERATOR_TYPE_LSR,
+	BINARY_OPERATOR_TYPE_EQ,
+	BINARY_OPERATOR_TYPE_NE,
+	BINARY_OPERATOR_TYPE_LT,
+	BINARY_OPERATOR_TYPE_GT,
+	BINARY_OPERATOR_TYPE_LE,
+	BINARY_OPERATOR_TYPE_GE,
+	BINARY_OPERATOR_TYPE_AND,
+	BINARY_OPERATOR_TYPE_OR,
+	BINARY_OPERATOR_TYPE_XOR,
+};
+
+struct token {
+	size_t index;
+	size_t length;
+	enum token_type type;
+	union {
+		expr_value value;
+		enum unary_operator_type unary_operator_type;
+		enum binary_operator_type binary_operator_type;
+	} extra;
+};
+
+struct token_list {
+	struct token *tokens;
+	size_t buffer_size; /* Number of tokens in buffer */
+	size_t num_tokens;
+};
+
+static void token_list_init(struct token_list *list)
 {
 	list->tokens = bergen_malloc(sizeof(*list->tokens) * 32);
 	list->buffer_size = 32;
 	list->num_tokens = 0;
 }
 
-void expr_token_list_destroy(struct expr_token_list *list)
+static void token_list_destroy(struct token_list *list)
 {
 	bergen_free(list->tokens);
 }
 
-void expr_token_list_append(struct expr_token_list *list, const struct expr_token *token)
+static void token_list_append(struct token_list *list, const struct token *token)
 {
-	struct expr_token *ptr;
+	struct token *ptr;
 
 	if (list->num_tokens >= list->buffer_size) {
 		list->buffer_size *= 2;
@@ -71,14 +121,14 @@ void expr_data_destroy(struct expr_data *data)
 struct tokenize_data {
 	/* Constants */
 	struct expr_data *data;
-	struct expr_token_list *tokens;
+	struct token_list *tokens;
 
 	/* Mutables */
 	size_t index;
 	char current_char;
 	int consumed_char;
 	size_t paren_levels;
-	struct expr_token token;
+	struct token token;
 	const struct tokenize_state *state;
 };
 
@@ -152,7 +202,7 @@ static void token_calc_length(struct tokenize_data *data, size_t additional_char
 
 static void token_append(struct tokenize_data *data)
 {
-	expr_token_list_append(data->tokens, &data->token);
+	token_list_append(data->tokens, &data->token);
 }
 
 static inline int is_constant_begin(char c)
@@ -203,7 +253,7 @@ static inline int is_label_middle(char c)
 static struct error *do_constant_begin(struct tokenize_data *data)
 {
 	data->token.index = data->index;
-	data->token.type = EXPR_TOKEN_TYPE_CONSTANT;
+	data->token.type = TOKEN_TYPE_CONSTANT;
 
 	data->state = &TOKENIZE_STATE_CONSTANT;
 	return NULL;
@@ -212,7 +262,7 @@ static struct error *do_constant_begin(struct tokenize_data *data)
 static struct error *do_prefix_constant_begin(struct tokenize_data *data)
 {
 	data->token.index = data->index;
-	data->token.type = EXPR_TOKEN_TYPE_CONSTANT;
+	data->token.type = TOKEN_TYPE_CONSTANT;
 
 	data->state = &TOKENIZE_STATE_PREFIX_CONSTANT;
 	return NULL;
@@ -221,7 +271,7 @@ static struct error *do_prefix_constant_begin(struct tokenize_data *data)
 static struct error *do_char_constant_begin(struct tokenize_data *data)
 {
 	data->token.index = data->index;
-	data->token.type = EXPR_TOKEN_TYPE_CONSTANT;
+	data->token.type = TOKEN_TYPE_CONSTANT;
 
 	data->state = &TOKENIZE_STATE_CHAR_CONSTANT;
 	return NULL;
@@ -231,14 +281,14 @@ static struct error *do_unary_operator(struct tokenize_data *data)
 {
 	data->token.index = data->index;
 	data->token.length = 1;
-	data->token.type = EXPR_TOKEN_TYPE_UNARY_OPERATOR;
+	data->token.type = TOKEN_TYPE_UNARY_OPERATOR;
 	switch (data->current_char) {
 	case '~':
-		data->token.extra.unary_operator_type = EXPR_UNARY_OPERATOR_TYPE_INVERT;
+		data->token.extra.unary_operator_type = UNARY_OPERATOR_TYPE_INVERT;
 		break;
 
 	case '-':
-		data->token.extra.unary_operator_type = EXPR_UNARY_OPERATOR_TYPE_NEGATE;
+		data->token.extra.unary_operator_type = UNARY_OPERATOR_TYPE_NEGATE;
 		break;
 	}
 	token_append(data);
@@ -250,7 +300,7 @@ static struct error *do_unary_operator(struct tokenize_data *data)
 static struct error *do_binary_operator_begin(struct tokenize_data *data)
 {
 	data->token.index = data->index;
-	data->token.type = EXPR_TOKEN_TYPE_BINARY_OPERATOR;
+	data->token.type = TOKEN_TYPE_BINARY_OPERATOR;
 
 	data->state = &TOKENIZE_STATE_BINARY_OPERATOR;
 	return NULL;
@@ -260,7 +310,7 @@ static struct error *do_lparen(struct tokenize_data *data)
 {
 	data->token.index = data->index;
 	data->token.length = 1;
-	data->token.type = EXPR_TOKEN_TYPE_LPAREN;
+	data->token.type = TOKEN_TYPE_LPAREN;
 	token_append(data);
 
 	data->paren_levels++;
@@ -272,7 +322,7 @@ static struct error *do_rparen(struct tokenize_data *data)
 {
 	data->token.index = data->index;
 	data->token.length = 1;
-	data->token.type = EXPR_TOKEN_TYPE_RPAREN;
+	data->token.type = TOKEN_TYPE_RPAREN;
 	token_append(data);
 
 	if (data->paren_levels <= 0)
@@ -286,7 +336,7 @@ static struct error *do_rparen(struct tokenize_data *data)
 static struct error *do_label_begin(struct tokenize_data *data)
 {
 	data->token.index = data->index;
-	data->token.type = EXPR_TOKEN_TYPE_CONSTANT;
+	data->token.type = TOKEN_TYPE_CONSTANT;
 
 	data->state = &TOKENIZE_STATE_LABEL;
 	return NULL;
@@ -458,47 +508,47 @@ static struct error *evaluate_binary_operator_1(struct tokenize_data *data)
 
 	switch (c) {
 	case '+':
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_PLUS;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_PLUS;
 		break;
 
 	case '-':
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_MINUS;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_MINUS;
 		break;
 
 	case '*':
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_TIMES;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_TIMES;
 		break;
 
 	case '/':
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_DIV;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_DIV;
 		break;
 
 	case '%':
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_MODULO;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_MODULO;
 		break;
 
 	case '=':
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_EQ;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_EQ;
 		break;
 
 	case '<':
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_LT;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_LT;
 		break;
 
 	case '>':
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_GT;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_GT;
 		break;
 
 	case '&':
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_AND;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_AND;
 		break;
 
 	case '|':
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_OR;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_OR;
 		break;
 
 	case '^':
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_XOR;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_XOR;
 		break;
 	}
 
@@ -512,17 +562,17 @@ static struct error *evaluate_binary_operator_2(struct tokenize_data *data)
 	struct error *err;
 
 	if (!bergen_strncmp(str, "<<", 2))
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_LSL;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_LSL;
 	else if (!bergen_strncmp(str, ">>", 2))
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_LSR;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_LSR;
 	else if (!bergen_strncmp(str, "==", 2))
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_EQ;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_EQ;
 	else if (!bergen_strncmp(str, "!=", 2))
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_NE;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_NE;
 	else if (!bergen_strncmp(str, "<=", 2))
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_LE;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_LE;
 	else if (!bergen_strncmp(str, ">=", 2))
-		data->token.extra.binary_operator_type = EXPR_BINARY_OPERATOR_TYPE_GE;
+		data->token.extra.binary_operator_type = BINARY_OPERATOR_TYPE_GE;
 	else {
 		buf = bergen_strndup_null(str, 2);
 		err = error_create("Invalid binary operator: \"%s\"", buf);
@@ -747,7 +797,7 @@ static struct error *tokenize_state_label_end(struct tokenize_data *data)
 	return NULL;
 }
 
-struct error *expr_tokenize(struct expr_data *data, struct expr_token_list *tokens)
+static struct error *tokenize(struct expr_data *data, struct token_list *tokens)
 {
 	struct error *err;
 	struct tokenize_data tdata;
@@ -776,101 +826,103 @@ struct error *expr_tokenize(struct expr_data *data, struct expr_token_list *toke
 	return NULL;
 }
 
-static void apply_binary_operator(enum expr_binary_operator_type op_type, expr_value *result, expr_value rvalue)
+static void apply_binary_operator(enum binary_operator_type op_type, expr_value *result, expr_value rvalue)
 {
 	switch (op_type) {
-	case EXPR_BINARY_OPERATOR_TYPE_ASSIGN:
+	case BINARY_OPERATOR_TYPE_ASSIGN:
 		*result = rvalue;
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_PLUS:
+	case BINARY_OPERATOR_TYPE_PLUS:
 		*result += rvalue;
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_MINUS:
+	case BINARY_OPERATOR_TYPE_MINUS:
 		*result -= rvalue;
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_TIMES:
+	case BINARY_OPERATOR_TYPE_TIMES:
 		*result *= rvalue;
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_DIV:
+	case BINARY_OPERATOR_TYPE_DIV:
 		*result /= rvalue;
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_MODULO:
+	case BINARY_OPERATOR_TYPE_MODULO:
 		*result %= rvalue;
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_LSL:
+	case BINARY_OPERATOR_TYPE_LSL:
 		*result <<= rvalue;
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_LSR:
+	case BINARY_OPERATOR_TYPE_LSR:
 		*result >>= rvalue;
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_EQ:
+	case BINARY_OPERATOR_TYPE_EQ:
 		*result = (*result == rvalue);
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_NE:
+	case BINARY_OPERATOR_TYPE_NE:
 		*result = (*result != rvalue);
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_LT:
+	case BINARY_OPERATOR_TYPE_LT:
 		*result = (*result < rvalue);
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_GT:
+	case BINARY_OPERATOR_TYPE_GT:
 		*result = (*result > rvalue);
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_LE:
+	case BINARY_OPERATOR_TYPE_LE:
 		*result = (*result <= rvalue);
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_GE:
+	case BINARY_OPERATOR_TYPE_GE:
 		*result = (*result >= rvalue);
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_AND:
+	case BINARY_OPERATOR_TYPE_AND:
 		*result &= rvalue;
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_OR:
+	case BINARY_OPERATOR_TYPE_OR:
 		*result |= rvalue;
 		break;
 
-	case EXPR_BINARY_OPERATOR_TYPE_XOR:
+	case BINARY_OPERATOR_TYPE_XOR:
 		*result ^= rvalue;
 		break;
 	}
 }
 
-static size_t expr_evaluate_r(struct expr_data *data, struct expr_token_list *tokens, size_t start_index, expr_value *result);
+static size_t expr_evaluate_r(struct expr_data *data, struct token_list *tokens, size_t start_index, expr_value *result);
 
-static size_t apply_unary_operator(struct expr_data *data, struct expr_token_list *tokens, size_t start_index, expr_value *result)
+static size_t apply_unary_operator(struct expr_data *data, struct token_list *tokens, size_t start_index, expr_value *result)
 {
 	size_t index = start_index;
 	expr_value value;
-	struct expr_token *token1 = &tokens->tokens[index];
-	struct expr_token *token2 = &tokens->tokens[index + 1];
+	struct token *token1 = &tokens->tokens[index];
+	struct token *token2 = &tokens->tokens[index + 1];
 
-	if (token2->type == EXPR_TOKEN_TYPE_CONSTANT) {
+	if (token2->type == TOKEN_TYPE_CONSTANT) {
 		index += 2;
 		value = token2->extra.value;
-	} else if (token2->type == EXPR_TOKEN_TYPE_LPAREN) {
+	} else if (token2->type == TOKEN_TYPE_LPAREN) {
 		index = expr_evaluate_r(data, tokens, index + 1, &value);
+	} else if (token2->type == TOKEN_TYPE_UNARY_OPERATOR) {
+		index = apply_unary_operator(data, tokens, index + 1, &value);
 	}
 
 	switch (token1->extra.unary_operator_type) {
-	case EXPR_UNARY_OPERATOR_TYPE_INVERT:
+	case UNARY_OPERATOR_TYPE_INVERT:
 		*result = ~value;
 		break;
 
-	case EXPR_UNARY_OPERATOR_TYPE_NEGATE:
+	case UNARY_OPERATOR_TYPE_NEGATE:
 		*result = -value;
 		break;
 	}
@@ -878,23 +930,23 @@ static size_t apply_unary_operator(struct expr_data *data, struct expr_token_lis
 	return index;
 }
 
-static size_t expr_evaluate_r(struct expr_data *data, struct expr_token_list *tokens, size_t start_index, expr_value *result)
+static size_t expr_evaluate_r(struct expr_data *data, struct token_list *tokens, size_t start_index, expr_value *result)
 {
 	size_t index = start_index;
 	expr_value value;
-	struct expr_token *token;
-	enum expr_binary_operator_type op_type = EXPR_BINARY_OPERATOR_TYPE_ASSIGN;
+	struct token *token;
+	enum binary_operator_type op_type = BINARY_OPERATOR_TYPE_ASSIGN;
 
 	for (;;) {
 		/* First step */
 		token = &tokens->tokens[index];
-		if (token->type == EXPR_TOKEN_TYPE_CONSTANT) {
+		if (token->type == TOKEN_TYPE_CONSTANT) {
 			index++;
 			apply_binary_operator(op_type, result, token->extra.value);
-		} else if (token->type == EXPR_TOKEN_TYPE_LPAREN) {
+		} else if (token->type == TOKEN_TYPE_LPAREN) {
 			index = expr_evaluate_r(data, tokens, index + 1, &value);
 			apply_binary_operator(op_type, result, value);
-		} else if (token->type == EXPR_TOKEN_TYPE_UNARY_OPERATOR) {
+		} else if (token->type == TOKEN_TYPE_UNARY_OPERATOR) {
 			index = apply_unary_operator(data, tokens, index, &value);
 			apply_binary_operator(op_type, result, value);
 		}
@@ -903,10 +955,10 @@ static size_t expr_evaluate_r(struct expr_data *data, struct expr_token_list *to
 		if (index >= tokens->num_tokens)
 			return index;
 		token = &tokens->tokens[index];
-		if (token->type == EXPR_TOKEN_TYPE_BINARY_OPERATOR) {
+		if (token->type == TOKEN_TYPE_BINARY_OPERATOR) {
 			index++;
 			op_type = token->extra.binary_operator_type;
-		} else if (token->type == EXPR_TOKEN_TYPE_RPAREN) {
+		} else if (token->type == TOKEN_TYPE_RPAREN) {
 			return index;
 		}
 	}
@@ -917,17 +969,17 @@ static size_t expr_evaluate_r(struct expr_data *data, struct expr_token_list *to
 struct error *expr_evaluate(struct expr_data *data, expr_value *result)
 {
 	struct error *err;
-	struct expr_token_list tokens;
+	struct token_list tokens;
 
-	expr_token_list_init(&tokens);
-	if ((err = expr_tokenize(data, &tokens))) {
-		expr_token_list_destroy(&tokens);
+	token_list_init(&tokens);
+	if ((err = tokenize(data, &tokens))) {
+		token_list_destroy(&tokens);
 		return err;
 	}
 
 	/* Expression is guaranteed to be valid, now evaluate it */
 	expr_evaluate_r(data, &tokens, 0, result);
 
-	expr_token_list_destroy(&tokens);
+	token_list_destroy(&tokens);
 	return NULL;
 }
