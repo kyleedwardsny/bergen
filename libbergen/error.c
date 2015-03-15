@@ -39,7 +39,7 @@ struct error *error_create(const char *fmt, ...)
 
 struct error *error_create_vargs(const char *fmt, va_list args)
 {
-	struct error *err = bergen_malloc(sizeof(*err));
+	struct error *err;
 	va_list args2;
 	int size;
 
@@ -48,12 +48,9 @@ struct error *error_create_vargs(const char *fmt, va_list args)
 	va_end(args2);
 
 	if (size <= 0) { /* vsnprinf() returns -1 on error, + 1 = 0 */
-		err->message = NULL;
-		return err;
-	} else if (size > ERROR_SHORT_LENGTH) {
-		err->message = bergen_malloc(size);
+		return NULL;
 	} else {
-		err->message = err->message_short;
+		err = bergen_malloc(sizeof(*err) + size);
 	}
 
 	va_copy(args2, args);
@@ -65,7 +62,5 @@ struct error *error_create_vargs(const char *fmt, va_list args)
 
 void error_free(struct error *err)
 {
-	if (err->message != err->message_short)
-		bergen_free(err->message);
 	bergen_free(err);
 }

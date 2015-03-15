@@ -24,13 +24,11 @@
 #ifndef BERGEN_ERROR_H
 #define BERGEN_ERROR_H
 
-#define ERROR_SHORT_LENGTH	64
-
 #include <stdarg.h>
 
 struct error {
-	char *message;
-	char message_short[ERROR_SHORT_LENGTH];
+	int dummy_; /* fixes "flexible array member in otherwise empty struct" */
+	char message[];
 };
 
 static inline const char *error_get_message(const struct error *error)
