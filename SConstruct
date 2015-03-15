@@ -19,13 +19,71 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-env = Environment()
+import os, subprocess
+
+vars = Variables(".configuration.py")
+vars.AddVariables(						\
+	BoolVariable("TEST", "Unset to skip unit tests", True)	\
+)
+
+env = Environment(variables = vars)
+
+Help(vars.GenerateHelpText(env))
+
+cleaning = env.GetOption("clean")
+help = env.GetOption("help")
+
+if help:
+	Return()
+
+def configure_script(env, vars):
+	conf = Configure(env)
+	if not conf.CheckHeader("check.h") or not conf.CheckLib("check"):
+		print("WARNING: check not found, skipping unit tests!")
+		env.Replace(TEST = False)
+	vars.Save(".configuration.py", env)
+	return conf.Finish()
+
+def unit_test_func(source, target, **kargs):
+	for s in source:
+		p = subprocess.Popen(s.abspath)
+		p.wait()
+		if p.returncode != 0:
+			return p.returncode
+
+	for t in target:
+		f = open(t.abspath, "wa")
+		f.close()
+
+	return 0
+
+unit_test = env.Builder(action = unit_test_func)
+env.Append(BUILDERS = {"UnitTest": unit_test})
 
 env.Append(CPPPATH = [Dir("include")])
 env.Append(LIBPATH = [Dir("build/libbergen")])
 env.Append(CFLAGS = ["-std=c99", "-Wall", "-pedantic"])
 
+if not os.path.exists("config.log") and not cleaning:
+	env = configure_script(env, vars)
+
+distclean_files = [		\
+	"config.log",		\
+	".configuration.py",	\
+	".sconf_temp",		\
+	".sconsign.dblite",	\
+	"build",		\
+]
+
 env.Export({"env": env})
 
 env.SConscript("bergen/SConscript", variant_dir = "build/bergen", duplicate = 0)
 env.SConscript("libbergen/SConscript", variant_dir = "build/libbergen", duplicate = 0)
+
+if env["TEST"]:
+	env.SConscript("test/SConscript", variant_dir = "build/test", duplicate = 0)
+
+distclean = env.Clean("distclean", distclean_files)
+env.Clean("clean", "build")
+if cleaning:
+	env.Default("clean")

@@ -1,5 +1,5 @@
 /*
- * include/bergen/expression.h
+ * test/main.c
  * Copyright (C) 2015 Kyle Edwards <kyleedwardsny@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,35 +21,17 @@
  * THE SOFTWARE.
  */
 
-#ifndef BERGEN_EXPRESSION_H
-#define BERGEN_EXPRESSION_H
+#include "tests.h"
 
-#include <bergen/error.h>
-#include <bergen/label.h>
-#include <bergen/libc.h>
-#include <bergen/types.h>
-
-#include <stdlib.h>
-
-struct expr_data {
-	const char *str;
-	size_t length;
-	char local_label_char;
-	expr_value location_counter;
-
-	struct label_list labels;
-	struct label_list local_labels;
-};
-
-void expr_data_init(struct expr_data *data, const char *str, size_t length, char local_label_char);
-
-static inline void expr_data_init_easy(struct expr_data *data, const char *str, char local_label_char)
+int main(int argc, char **argv)
 {
-	expr_data_init(data, str, bergen_strlen(str), local_label_char);
+	Suite *suite = suite_create("Unit Tests");
+	SRunner *runner;
+
+	suite_add_tcase(suite, tcase_expr_evaluate());
+
+	runner = srunner_create(suite);
+	srunner_run_all(runner, CK_NORMAL);
+
+	return srunner_ntests_failed(runner) == 0 ? 0 : 1;
 }
-
-void expr_data_destroy(struct expr_data *data);
-
-struct error *expr_evaluate(struct expr_data *data, expr_value *result);
-
-#endif /* BERGEN_EXPRESSION_H */
