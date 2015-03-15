@@ -22,8 +22,9 @@
 import os, subprocess
 
 vars = Variables(".configuration.py")
-vars.AddVariables(						\
-	BoolVariable("TEST", "Unset to skip unit tests", True)	\
+vars.AddVariables(									\
+	BoolVariable("TEST", "Unset to skip building and running unit tests", True),	\
+	BoolVariable("RUN_TEST", "Unset to skip running unit tests", True)		\
 )
 
 env = Environment(variables = vars)

@@ -22,4 +22,5 @@
 Import("env")
 
 test = env.Program("test", SConscript("files.scons"), LIBS = ["bergen", "check", "m", "pthread", "rt"])
-env.UnitTest(".test_succeeded", test)
+if env["RUN_TEST"]:
+	env.UnitTest(".test_succeeded", test)
