@@ -126,6 +126,15 @@ START_TEST(test_hexadecimal_constant)
 }
 END_TEST
 
+START_TEST(test_char_constant)
+{
+	assert_expr_eq("'c'", 'c');
+	assert_expr_eq("'%'", '%');
+	assert_expr_invalid("'c");
+	assert_expr_invalid("'cd'");
+}
+END_TEST
+
 START_TEST(test_operator_plus)
 {
 	assert_expr_eq("1 + 2", 3);
@@ -306,6 +315,7 @@ TCase *tcase_expr_evaluate(void)
 	tcase_add_test(tcase, test_octal_constant);
 	tcase_add_test(tcase, test_decimal_constant);
 	tcase_add_test(tcase, test_hexadecimal_constant);
+	tcase_add_test(tcase, test_char_constant);
 
 	tcase_add_test(tcase, test_operator_plus);
 	tcase_add_test(tcase, test_operator_minus);
