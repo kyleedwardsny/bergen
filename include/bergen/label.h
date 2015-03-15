@@ -24,6 +24,7 @@
 #ifndef BERGEN_LABEL_H
 #define BERGEN_LABEL_H
 
+#include <bergen/libc.h>
 #include <bergen/types.h>
 
 #include <stdlib.h>
@@ -50,6 +51,11 @@ void label_list_destroy(struct label_list *list);
 void label_list_append_copy(struct label_list *list, const struct label *label);
 
 void label_list_append(struct label_list *list, const char *name, size_t length, expr_value value);
+
+static inline void label_list_append_easy(struct label_list *list, const char *name, expr_value value)
+{
+	label_list_append(list, name, bergen_strlen(name), value);
+}
 
 struct label *label_list_find_label(const struct label_list *list, const char *name, size_t length);
 
