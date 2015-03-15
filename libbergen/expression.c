@@ -55,7 +55,6 @@ void expr_token_list_append(struct expr_token_list *list, const struct expr_toke
 
 void expr_data_init(struct expr_data *data, const char *str, size_t length, char local_label_char)
 {
-	expr_token_list_init(&data->tokens);
 	label_list_init(&data->labels);
 	label_list_init(&data->local_labels);
 	data->str = str;
@@ -67,12 +66,12 @@ void expr_data_destroy(struct expr_data *data)
 {
 	label_list_destroy(&data->local_labels);
 	label_list_destroy(&data->labels);
-	expr_token_list_destroy(&data->tokens);
 }
 
 struct tokenize_data {
 	/* Constants */
 	struct expr_data *data;
+	struct expr_token_list *tokens;
 
 	/* Mutables */
 	size_t index;
@@ -153,7 +152,7 @@ static void token_calc_length(struct tokenize_data *data, size_t additional_char
 
 static void token_append(struct tokenize_data *data)
 {
-	expr_token_list_append(&data->data->tokens, &data->token);
+	expr_token_list_append(data->tokens, &data->token);
 }
 
 static void token_finish(struct tokenize_data *data, size_t additional_chars)
@@ -239,7 +238,7 @@ static struct error *do_unary_operator(struct tokenize_data *data)
 	data->token.index = data->index;
 	data->token.length = 1;
 	data->token.type = EXPR_TOKEN_TYPE_UNARY_OPERATOR;
-	expr_token_list_append(&data->data->tokens, &data->token);
+	token_append(data);
 
 	data->state = &TOKENIZE_STATE_EXPR_BEGIN;
 	return NULL;
@@ -259,7 +258,7 @@ static struct error *do_lparen(struct tokenize_data *data)
 	data->token.index = data->index;
 	data->token.length = 1;
 	data->token.type = EXPR_TOKEN_TYPE_LPAREN;
-	expr_token_list_append(&data->data->tokens, &data->token);
+	token_append(data);
 
 	data->paren_levels++;
 	data->state = &TOKENIZE_STATE_EXPR_BEGIN;
@@ -271,7 +270,7 @@ static struct error *do_rparen(struct tokenize_data *data)
 	data->token.index = data->index;
 	data->token.length = 1;
 	data->token.type = EXPR_TOKEN_TYPE_RPAREN;
-	expr_token_list_append(&data->data->tokens, &data->token);
+	token_append(data);
 
 	if (data->paren_levels <= 0)
 		return error_create("Unexpected ')' while evaluating expression");
@@ -491,7 +490,8 @@ static struct error *tokenize_state_expr_end_consume(struct tokenize_data *data,
 
 static struct error *tokenize_state_expr_end_end(struct tokenize_data *data)
 {
-	/* Nothing to do here */
+	if (data->paren_levels > 0)
+		return error_create("Expected %" PRIuPTR " ')'s at end of expression", data->paren_levels);
 	return NULL;
 }
 
@@ -529,6 +529,9 @@ static struct error *tokenize_state_constant_end(struct tokenize_data *data)
 	if ((err = evaluate_suffix_constant(data)))
 		return err;
 	token_append(data);
+
+	data->consumed_char = 0;
+	data->state = &TOKENIZE_STATE_EXPR_END;
 	return NULL;
 }
 
@@ -558,6 +561,9 @@ static struct error *tokenize_state_prefix_constant_end(struct tokenize_data *da
 	if ((err = evaluate_prefix_constant(data)))
 		return err;
 	token_append(data);
+
+	data->consumed_char = 0;
+	data->state = &TOKENIZE_STATE_EXPR_END;
 	return NULL;
 }
 
@@ -635,15 +641,19 @@ static struct error *tokenize_state_label_end(struct tokenize_data *data)
 		return err;
 	token_append(data);
 
+	data->consumed_char = 0;
+	data->state = &TOKENIZE_STATE_EXPR_END;
 	return NULL;
 }
 
-struct error *expr_tokenize(struct expr_data *data)
+struct error *expr_tokenize(struct expr_data *data, struct expr_token_list *tokens)
 {
 	struct error *err;
 	struct tokenize_data tdata;
 
 	tdata.data = data;
+	tdata.tokens = tokens;
+
 	tdata.paren_levels = 0;
 	tdata.state = &TOKENIZE_STATE_INITIAL_STATE;
 
@@ -661,9 +671,6 @@ struct error *expr_tokenize(struct expr_data *data)
 		if ((err = tdata.state->end(&tdata)))
 			return err;
 	} while (!tdata.consumed_char);
-
-	if (tdata.paren_levels > 0)
-		return error_create("Expected %ul ')'s at end of expression", tdata.paren_levels);
 
 	return NULL;
 }

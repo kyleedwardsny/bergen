@@ -76,7 +76,6 @@ struct expr_token_list {
 struct expr_data {
 	const char *str;
 	size_t length;
-	struct expr_token_list tokens;
 	char local_label_char;
 	expr_value location_counter;
 
@@ -94,7 +93,7 @@ void expr_data_init(struct expr_data *data, const char *str, size_t length, char
 
 void expr_data_destroy(struct expr_data *data);
 
-struct error *expr_tokenize(struct expr_data *data);
+struct error *expr_tokenize(struct expr_data *data, struct expr_token_list *tokens);
 
 struct error *expr_evaluate(struct expr_data *data, expr_value *result);
 
