@@ -37,9 +37,10 @@
 #define bergen_vsnprintf	vsnprintf
 
 /* stdlib.h */
+#define bergen_free		free
 #define bergen_malloc		malloc
 #define bergen_realloc		realloc
-#define bergen_free		free
+#define bergen_strtoll		strtoll
 
 /* string.h */
 #define bergen_memcpy		memcpy

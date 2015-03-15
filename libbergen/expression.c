@@ -50,6 +50,7 @@ void expr_token_list_append(struct expr_token_list *list, const struct expr_toke
 	ptr->index = token->index;
 	ptr->length = token->length;
 	ptr->type = token->type;
+	ptr->extra = token->extra;
 }
 
 void expr_data_init(struct expr_data *data, const char *str, size_t length, char local_label_char)
@@ -145,10 +146,20 @@ static const struct tokenize_state TOKENIZE_STATE_LABEL = {
 
 #define TOKENIZE_STATE_INITIAL_STATE TOKENIZE_STATE_EXPR_BEGIN
 
-static void token_finish(struct tokenize_data *data, size_t additional_chars)
+static void token_calc_length(struct tokenize_data *data, size_t additional_chars)
 {
 	data->token.length = data->index - data->token.index + additional_chars;
+}
+
+static void token_append(struct tokenize_data *data)
+{
 	expr_token_list_append(&data->data->tokens, &data->token);
+}
+
+static void token_finish(struct tokenize_data *data, size_t additional_chars)
+{
+	token_calc_length(data, additional_chars);
+	token_append(data);
 }
 
 static inline int is_constant_begin(char c)
@@ -208,7 +219,7 @@ static struct error *do_constant_begin(struct tokenize_data *data)
 static struct error *do_prefix_constant_begin(struct tokenize_data *data)
 {
 	data->token.index = data->index;
-	data->token.type = EXPR_TOKEN_TYPE_PREFIX_CONSTANT;
+	data->token.type = EXPR_TOKEN_TYPE_CONSTANT;
 
 	data->state = &TOKENIZE_STATE_PREFIX_CONSTANT;
 	return NULL;
@@ -217,7 +228,7 @@ static struct error *do_prefix_constant_begin(struct tokenize_data *data)
 static struct error *do_char_constant_begin(struct tokenize_data *data)
 {
 	data->token.index = data->index;
-	data->token.type = EXPR_TOKEN_TYPE_CHAR_CONSTANT;
+	data->token.type = EXPR_TOKEN_TYPE_CONSTANT;
 
 	data->state = &TOKENIZE_STATE_CHAR_CONSTANT;
 	return NULL;
@@ -273,10 +284,170 @@ static struct error *do_rparen(struct tokenize_data *data)
 static struct error *do_label_begin(struct tokenize_data *data)
 {
 	data->token.index = data->index;
-	data->token.type = EXPR_TOKEN_TYPE_LABEL;
+	data->token.type = EXPR_TOKEN_TYPE_CONSTANT;
 
 	data->state = &TOKENIZE_STATE_LABEL;
 	return NULL;
+}
+
+static struct error *evaluate_binary_constant(const char *str, size_t length, expr_value *result)
+{
+	char *end, *tmp;
+	struct error *err;
+
+	*result = bergen_strtoll(str, &end, 2);
+	if (end < str + length) {
+		tmp = bergen_strndup_null(str, length);
+		err = error_create("Invalid binary constant: \"%s\"", tmp);
+		bergen_free(tmp);
+		return err;
+	}
+
+	return NULL;
+}
+
+static struct error *evaluate_octal_constant(const char *str, size_t length, expr_value *result)
+{
+	char *end, *tmp;
+	struct error *err;
+
+	*result = bergen_strtoll(str, &end, 8);
+	if (end < str + length) {
+		tmp = bergen_strndup_null(str, length);
+		err = error_create("Invalid octal constant: \"%s\"", tmp);
+		bergen_free(tmp);
+		return err;
+	}
+
+	return NULL;
+}
+
+static struct error *evaluate_decimal_constant(const char *str, size_t length, expr_value *result)
+{
+	char *end, *tmp;
+	struct error *err;
+
+	*result = bergen_strtoll(str, &end, 10);
+	if (end < str + length) {
+		tmp = bergen_strndup_null(str, length);
+		err = error_create("Invalid decimal constant: \"%s\"", tmp);
+		bergen_free(tmp);
+		return err;
+	}
+
+	return NULL;
+}
+
+static struct error *evaluate_hexadecimal_constant(const char *str, size_t length, expr_value *result)
+{
+	char *end, *tmp;
+	struct error *err;
+
+	*result = bergen_strtoll(str, &end, 16);
+	if (end < str + length) {
+		tmp = bergen_strndup_null(str, length);
+		err = error_create("Invalid hexadecimal constant: \"%s\"", tmp);
+		bergen_free(tmp);
+		return err;
+	}
+
+	return NULL;
+}
+
+static struct error *evaluate_location_counter(struct tokenize_data *data, expr_value *result)
+{
+	*result = data->data->location_counter;
+	return NULL;
+}
+
+static struct error *evaluate_prefix_constant(struct tokenize_data *data)
+{
+	const char *str = data->data->str + data->token.index;
+	size_t length = data->token.length;
+	char c = str[0];
+	expr_value *result = &data->token.extra.value;
+
+	switch (c) {
+	case '%':
+		return evaluate_binary_constant(str + 1, length - 1, result);
+
+	case '@':
+		return evaluate_octal_constant(str + 1, length - 1, result);
+
+	case '$':
+		if (length == 1)
+			return evaluate_location_counter(data, result);
+		else
+			return evaluate_hexadecimal_constant(str + 1, length - 1, result);
+
+	default: /* Will never happen */
+		return error_create("Invalid constant prefix: '%c'", c);
+	}
+}
+
+static struct error *evaluate_suffix_constant(struct tokenize_data *data)
+{
+	const char *str = data->data->str + data->token.index;
+	size_t length = data->token.length;
+	char c = str[length - 1];
+	expr_value *result = &data->token.extra.value;
+
+	switch (c) {
+	case 'B':
+	case 'b':
+		return evaluate_binary_constant(str, length - 1, result);
+
+	case 'O':
+	case 'o':
+		return evaluate_octal_constant(str, length - 1, result);
+
+	case 'D':
+	case 'd':
+		return evaluate_decimal_constant(str, length - 1, result);
+
+	case 'H':
+	case 'h':
+		return evaluate_hexadecimal_constant(str, length - 1, result);
+	}
+
+	if (!!bergen_strchr("0123456789", c))
+		return evaluate_decimal_constant(str, length, result);
+	else /* Will never happen */
+		return error_create("Invalid constant suffix: '%c'", c);
+}
+
+static struct error *evaluate_char_constant(struct tokenize_data *data)
+{
+	data->token.extra.value = data->data->str[data->token.index + 1];
+	return NULL;
+}
+
+static struct error *evaluate_label_type_known(const struct label_list *labels, const char *str, size_t length, expr_value *result)
+{
+	const struct label *label = label_list_find_label(labels, str, length);
+	char *tmp;
+	struct error *err;
+
+	if (label) {
+		*result = label->value;
+		return NULL;
+	} else {
+		tmp = bergen_strndup_null(str, length);
+		err = error_create("Could not find label: %s", tmp);
+		bergen_free(tmp);
+		return err;
+	}
+}
+
+static struct error *evaluate_label(struct tokenize_data *data)
+{
+	const char *str = data->data->str + data->token.index;
+	char c = str[0];
+
+	if (c == data->data->local_label_char)
+		return evaluate_label_type_known(&data->data->local_labels, str + 1, data->token.length - 1, &data->token.extra.value);
+	else
+		return evaluate_label_type_known(&data->data->labels, str, data->token.length, &data->token.extra.value);
 }
 
 static struct error *tokenize_state_expr_begin_consume(struct tokenize_data *data, char c)
@@ -326,14 +497,24 @@ static struct error *tokenize_state_expr_end_end(struct tokenize_data *data)
 
 static struct error *tokenize_state_constant_consume(struct tokenize_data *data, char c)
 {
+	struct error *err;
+
 	if (is_constant_middle(c)) {
 		return NULL;
 	} else if (is_constant_suffix(c)) {
-		token_finish(data, 1);
+		token_calc_length(data, 1);
+		if ((err = evaluate_suffix_constant(data)))
+			return err;
+		token_append(data);
+
 		data->state = &TOKENIZE_STATE_EXPR_END;
 		return NULL;
 	} else {
-		token_finish(data, 0);
+		token_calc_length(data, 0);
+		if ((err = evaluate_suffix_constant(data)))
+			return err;
+		token_append(data);
+
 		data->consumed_char = 0;
 		data->state = &TOKENIZE_STATE_EXPR_END;
 		return NULL;
@@ -342,16 +523,27 @@ static struct error *tokenize_state_constant_consume(struct tokenize_data *data,
 
 static struct error *tokenize_state_constant_end(struct tokenize_data *data)
 {
-	token_finish(data, 0);
+	struct error *err;
+
+	token_calc_length(data, 0);
+	if ((err = evaluate_suffix_constant(data)))
+		return err;
+	token_append(data);
 	return NULL;
 }
 
 static struct error *tokenize_state_prefix_constant_consume(struct tokenize_data *data, char c)
 {
+	struct error *err;
+
 	if (is_constant_middle(c)) {
 		return NULL;
 	} else {
-		token_finish(data, 0);
+		token_calc_length(data, 0);
+		if ((err = evaluate_prefix_constant(data)))
+			return err;
+		token_append(data);
+
 		data->consumed_char = 0;
 		data->state = &TOKENIZE_STATE_EXPR_END;
 		return NULL;
@@ -360,18 +552,28 @@ static struct error *tokenize_state_prefix_constant_consume(struct tokenize_data
 
 static struct error *tokenize_state_prefix_constant_end(struct tokenize_data *data)
 {
-	token_finish(data, 0);
+	struct error *err;
+
+	token_calc_length(data, 0);
+	if ((err = evaluate_prefix_constant(data)))
+		return err;
+	token_append(data);
 	return NULL;
 }
 
 static struct error *tokenize_state_char_constant_consume(struct tokenize_data *data, char c)
 {
+	struct error *err;
 	size_t length = data->index - data->token.index;
 
 	if (length == 1) {
 		return NULL;
 	} else if (c == '\'') {
-		token_finish(data, 1);
+		token_calc_length(data, 1);
+		if ((err = evaluate_char_constant(data)))
+			return err;
+		token_append(data);
+
 		data->state = &TOKENIZE_STATE_EXPR_END;
 		return NULL;
 	} else {
@@ -408,10 +610,16 @@ static struct error *tokenize_state_binary_operator_end(struct tokenize_data *da
 
 static struct error *tokenize_state_label_consume(struct tokenize_data *data, char c)
 {
+	struct error *err;
+
 	if (is_label_middle(c)) {
 		return NULL;
 	} else {
-		token_finish(data, 0);
+		token_calc_length(data, 0);
+		if ((err = evaluate_label(data)))
+			return err;
+		token_append(data);
+
 		data->consumed_char = 0;
 		data->state = &TOKENIZE_STATE_EXPR_END;
 		return NULL;
@@ -420,7 +628,13 @@ static struct error *tokenize_state_label_consume(struct tokenize_data *data, ch
 
 static struct error *tokenize_state_label_end(struct tokenize_data *data)
 {
-	token_finish(data, 0);
+	struct error *err;
+
+	token_calc_length(data, 0);
+	if ((err = evaluate_label(data)))
+		return err;
+	token_append(data);
+
 	return NULL;
 }
 
@@ -449,7 +663,7 @@ struct error *expr_tokenize(struct expr_data *data)
 	} while (!tdata.consumed_char);
 
 	if (tdata.paren_levels > 0)
-		return error_create("Expected one or more ')'s at end of expression");
+		return error_create("Expected %ul ')'s at end of expression", tdata.paren_levels);
 
 	return NULL;
 }

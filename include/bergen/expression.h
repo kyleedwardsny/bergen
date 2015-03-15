@@ -32,19 +32,39 @@
 
 enum expr_token_type {
 	EXPR_TOKEN_TYPE_CONSTANT,
-	EXPR_TOKEN_TYPE_PREFIX_CONSTANT,
-	EXPR_TOKEN_TYPE_CHAR_CONSTANT,
-	EXPR_TOKEN_TYPE_LABEL,
 	EXPR_TOKEN_TYPE_UNARY_OPERATOR,
 	EXPR_TOKEN_TYPE_BINARY_OPERATOR,
 	EXPR_TOKEN_TYPE_LPAREN,
 	EXPR_TOKEN_TYPE_RPAREN,
 };
 
+enum expr_operator_type {
+	EXPR_OPERATOR_TYPE_PLUS,
+	EXPR_OPERATOR_TYPE_MINUS,
+	EXPR_OPERATOR_TYPE_TIMES,
+	EXPR_OPERATOR_TYPE_DIV,
+	EXPR_OPERATOR_TYPE_MODULO,
+	EXPR_OPERATOR_TYPE_LSL,
+	EXPR_OPERATOR_TYPE_LSR,
+	EXPR_OPERATOR_TYPE_EQ,
+	EXPR_OPERATOR_TYPE_NE,
+	EXPR_OPERATOR_TYPE_LT,
+	EXPR_OPERATOR_TYPE_GT,
+	EXPR_OPERATOR_TYPE_LE,
+	EXPR_OPERATOR_TYPE_GE,
+	EXPR_OPERATOR_TYPE_AND,
+	EXPR_OPERATOR_TYPE_OR,
+	EXPR_OPERATOR_TYPE_XOR,
+};
+
 struct expr_token {
 	size_t index;
 	size_t length;
 	enum expr_token_type type;
+	union {
+		expr_value value;
+		enum expr_operator_type operator_type;
+	} extra;
 };
 
 struct expr_token_list {
@@ -58,6 +78,7 @@ struct expr_data {
 	size_t length;
 	struct expr_token_list tokens;
 	char local_label_char;
+	expr_value location_counter;
 
 	struct label_list labels;
 	struct label_list local_labels;
