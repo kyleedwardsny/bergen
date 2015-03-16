@@ -23,6 +23,8 @@
 
 #include <bergen/preprocessor.h>
 
+#include <bergen/libc.h>
+
 void pp_macro_definition_init(struct pp_macro_definition *macro, const char *name, size_t length, int have_args)
 {
 	macro->name = bergen_strndup_null(name, length);
@@ -64,5 +66,45 @@ struct error *pp_macro_definition_add_arg(struct pp_macro_definition *macro, con
 	}
 
 	macro->args[macro->num_args++] = bergen_strndup_null(name, length);
+	return NULL;
+}
+
+struct error *pp_macro_definition_parse(struct pp_macro_definition *macro, const char *str, size_t length)
+{
+	int have_args;
+	size_t name_length, arg_index;
+	const char *ptr;
+	char *buf;
+	struct error *err;
+
+	if ((ptr = bergen_memchr(str, '(', length))) {
+		arg_index = ptr - str + 1;
+		name_length = arg_index - 1;
+		have_args = 1;
+	} else {
+		have_args = 0;
+		name_length = length;
+	}
+
+	pp_macro_definition_init(macro, str, name_length, have_args);
+
+	if (have_args) {
+		for (;;) {
+			if ((ptr = bergen_memchr(str + arg_index, ',', length - arg_index))) {
+				pp_macro_definition_add_arg(macro, str + arg_index, ptr - (str + arg_index));
+				arg_index = ptr - str + 1;
+			} else if ((ptr = bergen_memchr(str + arg_index, ')', length - arg_index))) {
+				pp_macro_definition_add_arg(macro, str + arg_index, ptr - (str + arg_index));
+				break;
+			} else {
+				pp_macro_definition_destroy(macro);
+				buf = bergen_strndup_null(str, length);
+				err = error_create("Invalid macro definition: \"%s\"", buf);
+				bergen_free(buf);
+				return err;
+			}
+		}
+	}
+
 	return NULL;
 }

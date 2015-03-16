@@ -44,6 +44,7 @@
 #define bergen_strtoll		strtoll
 
 /* string.h */
+#define bergen_memchr		memchr
 #define bergen_memcpy		memcpy
 #define bergen_strchr		strchr
 #define bergen_strcpy		strcpy

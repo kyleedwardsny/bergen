@@ -50,4 +50,7 @@ static inline struct error *pp_macro_definition_add_arg_easy(struct pp_macro_def
 	return pp_macro_definition_add_arg(macro, name, bergen_strlen(name));
 }
 
+/* Note that this initializes the macro! */
+struct error *pp_macro_definition_parse(struct pp_macro_definition *macro, const char *str, size_t length);
+
 #endif /* BERGEN_PREPROCESSOR_H */
