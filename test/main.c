@@ -29,6 +29,7 @@ int main(int argc, char **argv)
 	SRunner *runner;
 
 	suite_add_tcase(suite, tcase_expr_evaluate());
+	suite_add_tcase(suite, tcase_parse());
 	suite_add_tcase(suite, tcase_preprocessor());
 
 	runner = srunner_create(suite);

@@ -24,6 +24,7 @@ src = [				\
 	"expression.c",		\
 	"label.c",		\
 	"libc.c",		\
+	"parse.c",		\
 	"preprocessor.c",	\
 ]
 

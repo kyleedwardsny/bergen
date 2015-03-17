@@ -1,5 +1,5 @@
 /*
- * include/bergen/libc.h
+ * include/bergen/parse.h
  * Copyright (C) 2015 Kyle Edwards <kyleedwardsny@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,40 +21,12 @@
  * THE SOFTWARE.
  */
 
-#ifndef BERGEN_LIBC_H
-#define BERGEN_LIBC_H
+#ifndef BERGEN_PARSE_H
+#define BERGEN_PARSE_H
 
-#include <ctype.h>
-#include <inttypes.h>
-#include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-/* ctype.h */
-#define bergen_isspace		isspace
+/* Returns 0 if invalid string */
+size_t parse_string_data(const char *str, size_t length, void *buf, size_t *buf_length);
 
-/* stdio.h */
-#define bergen_vsnprintf	vsnprintf
-
-/* stdlib.h */
-#define bergen_free		free
-#define bergen_malloc		malloc
-#define bergen_realloc		realloc
-#define bergen_strtoll		strtoll
-
-/* string.h */
-#define bergen_memchr		memchr
-#define bergen_memcmp		memcmp
-#define bergen_memcpy		memcpy
-#define bergen_memset		memset
-#define bergen_strchr		strchr
-#define bergen_strcpy		strcpy
-#define bergen_strlen		strlen
-#define bergen_strncmp		strncmp
-#define bergen_strncpy		strncpy
-char *bergen_strdup(const char *s);
-char *bergen_strndup(const char *s, size_t n);
-char *bergen_strndup_null(const char *s, size_t n); /* Puts null terminator at the end */
-
-#endif /* BERGEN_LIBC_H */
+#endif /* BERGEN_PARSE_H */
