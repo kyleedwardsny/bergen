@@ -24,17 +24,18 @@ import os, subprocess
 vars = Variables(".configuration.py")
 vars.AddVariables(									\
 	BoolVariable("TEST", "Unset to skip building and running unit tests", True),	\
-	BoolVariable("RUN_TEST", "Unset to skip running unit tests", True)		\
+	BoolVariable("RUN_TEST", "Unset to skip running unit tests", True),		\
+	BoolVariable("DEBUG", "Set to add debugging symbols", False)			\
 )
 
 env = Environment(variables = vars)
 
 Help(vars.GenerateHelpText(env))
 
-cleaning = env.GetOption("clean")
-help = env.GetOption("help")
+scons_clean = env.GetOption("clean")
+scons_help = env.GetOption("help")
 
-if help:
+if scons_help:
 	Return()
 
 def configure_script(env, vars):
@@ -64,8 +65,10 @@ env.Append(BUILDERS = {"UnitTest": unit_test})
 env.Append(CPPPATH = [Dir("include")])
 env.Append(LIBPATH = [Dir("build/libbergen")])
 env.Append(CFLAGS = ["-std=c99", "-Wall", "-pedantic"])
+if env["DEBUG"]:
+	env.Append(CFLAGS = ["-g"])
 
-if not os.path.exists("config.log") and not cleaning:
+if not os.path.exists("config.log") and not scons_clean:
 	env = configure_script(env, vars)
 
 distclean_files = [		\
@@ -86,5 +89,5 @@ if env["TEST"]:
 
 distclean = env.Clean("distclean", distclean_files)
 env.Clean("clean", "build")
-if cleaning:
+if scons_clean:
 	env.Default("clean")
