@@ -4,6 +4,7 @@
 #include <check.h>
 
 TCase *tcase_expr_evaluate(void);
+TCase *tcase_object(void);
 TCase *tcase_parse(void);
 TCase *tcase_preprocessor(void);
 

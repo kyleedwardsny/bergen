@@ -22,6 +22,7 @@
 src = [				\
 	"expr_evaluate.c",	\
 	"main.c",		\
+	"object.c",		\
 	"parse.c",		\
 	"preprocessor.c",	\
 ]

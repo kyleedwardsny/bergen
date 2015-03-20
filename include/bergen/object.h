@@ -1,5 +1,5 @@
 /*
- * test/main.c
+ * include/bergen/object.h
  * Copyright (C) 2015 Kyle Edwards <kyleedwardsny@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,20 +21,45 @@
  * THE SOFTWARE.
  */
 
-#include "tests.h"
+#ifndef BERGEN_OBJECT_H
+#define BERGEN_OBJECT_H
 
-int main(int argc, char **argv)
+#include <stdlib.h>
+
+#include <bergen/types.h>
+
+struct object_segment {
+	expr_value address;
+	size_t index;
+};
+
+struct object_output {
+	void *buffer;
+	size_t buffer_size;
+	struct object_segment *segments;
+	size_t segment_buffer_size;
+	size_t num_segments;
+	expr_value address;
+};
+
+void object_output_init(struct object_output *obj);
+
+void object_output_destroy(struct object_output *obj);
+
+void object_output_set_address(struct object_output *obj, expr_value address);
+
+void object_output_write(struct object_output *obj, const void *mem, size_t length);
+
+static inline void *object_output_get_segment_ptr(const struct object_output *obj, const struct object_segment *segment)
 {
-	Suite *suite = suite_create("Unit Tests");
-	SRunner *runner;
-
-	suite_add_tcase(suite, tcase_expr_evaluate());
-	suite_add_tcase(suite, tcase_object());
-	suite_add_tcase(suite, tcase_parse());
-	suite_add_tcase(suite, tcase_preprocessor());
-
-	runner = srunner_create(suite);
-	srunner_run_all(runner, CK_NORMAL);
-
-	return srunner_ntests_failed(runner) == 0 ? 0 : 1;
+	return (char *) obj->buffer + segment->index;
 }
+
+static inline size_t object_output_get_segment_length(const struct object_output *obj, const struct object_segment *segment)
+{
+	if (segment == &obj->segments[obj->num_segments - 1])
+		return obj->address - segment->address;
+	return (segment + 1)->index - segment->index;
+}
+
+#endif /* BERGEN_OBJECT_H */
