@@ -27,6 +27,19 @@
 
 #include <bergen/libc.h>
 
+static void prepare_for_write(struct object_output *obj)
+{
+	static const uint8_t data1[] = {0x04, 0x05, 0x06};
+	static const uint8_t data2[] = {0x07, 0x08, 0x09};
+
+	object_output_init(obj);
+
+	object_output_set_address(obj, 0x8002);
+	object_output_write(obj, data1, 3);
+	object_output_set_address(obj, 0x8000);
+	object_output_write(obj, data2, 3);
+}
+
 START_TEST(test_object_output)
 {
 	static const uint8_t data1[] = {0xAB, 0xCD, 0xEF, 0x00, 0x12};
@@ -73,11 +86,36 @@ START_TEST(test_object_output)
 }
 END_TEST
 
+START_TEST(test_write_to_binary)
+{
+	static const uint8_t read_data[] = {0x07, 0x08, 0x09, 0x05, 0x06};
+
+	struct object_output obj;
+	FILE *file;
+	uint8_t data[5];
+
+	prepare_for_write(&obj);
+	file = bergen_tmpfile();
+	object_output_write_to_binary(&obj, file);
+
+	bergen_fseek(file, 0, SEEK_SET);
+	ck_assert_uint_eq(bergen_fread(data, sizeof(char), 5, file), 5);
+	ck_assert_int_eq(bergen_memcmp(data, read_data, 5), 0);
+
+	ck_assert_uint_eq(bergen_fread(data, sizeof(char), 5, file), 0);
+	ck_assert_int_ne(bergen_feof(file), 0);
+
+	object_output_destroy(&obj);
+	bergen_fclose(file);
+}
+END_TEST
+
 TCase *tcase_object(void)
 {
 	TCase *tcase = tcase_create("object");
 
 	tcase_add_test(tcase, test_object_output);
+	tcase_add_test(tcase, test_write_to_binary);
 
 	return tcase;
 }

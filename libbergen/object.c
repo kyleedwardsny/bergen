@@ -25,6 +25,8 @@
 
 #include <bergen/libc.h>
 
+#include <errno.h>
+
 void object_output_init(struct object_output *obj)
 {
 	obj->buffer_size = 128;
@@ -80,4 +82,27 @@ void object_output_write(struct object_output *obj, const void *mem, size_t leng
 
 	bergen_memcpy((char *) obj->buffer + total_size, mem, length);
 	obj->address += length;
+}
+
+struct error *object_output_write_to_binary(const struct object_output *obj, FILE *file)
+{
+	size_t i;
+	const struct object_segment *segment;
+	expr_value lowest_address = obj->segments[0].address;
+
+	/* Get the lowest address */
+	for (i = 1; i < obj->num_segments; i++) {
+		if (obj->segments[i].address < lowest_address)
+			lowest_address = obj->segments[i].address;
+	}
+
+	/* Write to the file */
+	for (i = 0; i < obj->num_segments; i++) {
+		segment = &obj->segments[i];
+		if (bergen_fseek(file, segment->address - lowest_address, SEEK_SET))
+			return error_create("Unable to fseek(): %s", bergen_strerror(bergen_ferror(file)));
+		bergen_fwrite(object_output_get_segment_ptr(obj, segment), sizeof(char), object_output_get_segment_length(obj, segment), file);
+	}
+
+	return NULL;
 }

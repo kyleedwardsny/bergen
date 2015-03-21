@@ -24,8 +24,10 @@
 #ifndef BERGEN_OBJECT_H
 #define BERGEN_OBJECT_H
 
+#include <stdio.h>
 #include <stdlib.h>
 
+#include <bergen/error.h>
 #include <bergen/types.h>
 
 struct object_segment {
@@ -49,6 +51,8 @@ void object_output_destroy(struct object_output *obj);
 void object_output_set_address(struct object_output *obj, expr_value address);
 
 void object_output_write(struct object_output *obj, const void *mem, size_t length);
+
+struct error *object_output_write_to_binary(const struct object_output *obj, FILE *file);
 
 static inline void *object_output_get_segment_ptr(const struct object_output *obj, const struct object_segment *segment)
 {

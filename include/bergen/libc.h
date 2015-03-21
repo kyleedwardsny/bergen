@@ -35,6 +35,13 @@
 #define bergen_isspace		isspace
 
 /* stdio.h */
+#define bergen_fclose		fclose
+#define bergen_feof		feof
+#define bergen_ferror		ferror
+#define bergen_fread		fread
+#define bergen_fseek		fseek
+#define bergen_fwrite		fwrite
+#define bergen_tmpfile		tmpfile
 #define bergen_vsnprintf	vsnprintf
 
 /* stdlib.h */
@@ -50,6 +57,7 @@
 #define bergen_memset		memset
 #define bergen_strchr		strchr
 #define bergen_strcpy		strcpy
+#define bergen_strerror		strerror
 #define bergen_strlen		strlen
 #define bergen_strncmp		strncmp
 #define bergen_strncpy		strncpy
